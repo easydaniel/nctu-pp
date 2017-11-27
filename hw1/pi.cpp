@@ -1,56 +1,58 @@
 #include <cstdio>
-#include <vector>
-#include <pthread.h>
 #include <ctime>
 #include <cstdlib>
-
-using namespace std;
+#include <cstring>
+#include <pthread.h>
 
 struct thread_arg {
-  int id;
-  long long toss;
+    long long toss, cnt;
 };
 
-vector<thread_arg> args;
-vector<long long> in_circle;
-
 void *func (void *args) {
-  srand(time(NULL));
-  unsigned seed = rand();
-  for (long long i = 0; i < ((thread_arg *)args)->toss; ++i) {
-    double x = double(rand_r(&seed)) / RAND_MAX;
-    double y = double(rand_r(&seed)) / RAND_MAX;
-    if (x * x + y * y <= 1) {
-      in_circle[((thread_arg *)args)->id]++;
+    unsigned seed = rand();
+    long long toss = ((thread_arg *)args)->toss;
+    long long cnt = 0;
+    long long limit = RAND_MAX * 1L * RAND_MAX;
+    for (long long i = 0; i < toss; ++i) {
+        long long x = rand_r(&seed);
+        long long y = rand_r(&seed);
+        if (x * x + y * y <= limit) {
+            cnt++;
+        }
     }
-  }
-  return NULL;
+    ((thread_arg *)args)->cnt = cnt;
+    return NULL;
 }
 
 int main(int argc, char const *argv[]) {
-  if (argc != 3) {
-    puts("Usage: ./pi <#thread> <#toss>");
-    return 1;
-  }
-  int thread_num;
-  int toss_count;
-  sscanf(argv[1], "%d", &thread_num);
-  sscanf(argv[2], "%d", &toss_count);
+    if (argc != 3) {
+        puts("Usage: ./pi <#thread> <#toss>");
+        return 1;
+    }
+    srand(time(NULL));
+    int thread_num;
+    int toss_count;
+    sscanf(argv[1], "%d", &thread_num);
+    sscanf(argv[2], "%d", &toss_count);
 
-  vector<pthread_t> threads(thread_num);
-  in_circle = vector<long long>(thread_num, 0);
-  for (int i = 0; i < thread_num; ++i) {
-    args.push_back({i, toss_count / thread_num});
-    pthread_create(&threads[i], NULL, func, &args[i]);
-  }
-  for (int i = 0; i < thread_num; ++i) {
-    pthread_join(threads[i], NULL);
-  }
-  long long total_in_circle = 0;
-  for (int i = 0; i < thread_num; ++i) {
-      total_in_circle += in_circle[i];
-  }
-  printf("%4f\n", total_in_circle * 4.0f / toss_count);
-  pthread_exit(NULL);
-  return 0;
+    pthread_t *threads = new pthread_t [thread_num];
+    thread_arg *args   = new thread_arg [thread_num];
+
+    for (int i = 0; i < thread_num; ++i) {
+        args[i].toss = toss_count / thread_num;
+        pthread_create(&threads[i], NULL, func, &args[i]);
+    }
+    for (int i = 0; i < thread_num; ++i) {
+        pthread_join(threads[i], NULL);
+    }
+    long long total_in_circle = 0;
+    for (int i = 0; i < thread_num; ++i) {
+        total_in_circle += args[i].cnt;
+    }
+    printf("%4f\n", total_in_circle * 4.0f / toss_count);
+
+    delete [] threads;
+    delete [] args;
+
+    return 0;
 }
